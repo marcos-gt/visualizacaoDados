@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 def obterproximoid(cursor, tabela, coluna_id):
     # Consulta para obter o próximo valor de chave primária para a tabela específica
@@ -107,7 +108,7 @@ class Popula:
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s)
                 """
                 data = (
-                    id, row['RECONHECIMENTO'], row['GESTOR'],row['TIPO'],row['FONTE'],row['FINALIDADE'],pago,municipio,eixo,subeixo
+                    id, row['RECONHECIMENTO'], row['GESTOR'],row['TIPO'],row['FONTE'],row['FINALIDADE'],pago,municipio,eixo,subeixo,'05/01/2024'
                 )
                 cursor.execute(query, data)
 

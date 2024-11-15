@@ -1,8 +1,16 @@
+from decimal import Decimal
+
 import pandas as pd
 import chardet
 from unidecode import unidecode
 
 class Arquivos:
+    @staticmethod
+    def retirar_notacao_cientifica(dataframe, colunas):
+        for _, row in dataframe.iterrows():
+            for coluna in colunas:
+                dataframe[coluna] = str(Decimal(row[coluna]))
+
     @staticmethod
     def remover_acentos(dataframe):
         acentos = {
@@ -28,11 +36,8 @@ class Arquivos:
         return dataframe.apply(lambda col: col.map(lambda x: substituir_acentos(str(x)) if isinstance(x, str) else x))
 
     @staticmethod
-    def abrir_remover_acentos(caminho, arq_output):
-        with open(caminho, 'rb') as f:
-            result = chardet.detect(f.read(10000))
+    def abrir_remover_acentos(data, arq_output):
 
-        data = pd.read_csv(caminho, encoding=result['encoding'], delimiter=";")
         dadosRS = data[data['UF'] == 'RS']
         dadosRS.columns = [unidecode(col) for col in dadosRS.columns]
 
@@ -46,11 +51,7 @@ class Arquivos:
         print(arq_output, 'Salvo com sucesso!')
 
     @staticmethod
-    def abrir_remover_reconstrucao(caminho, arq_output):
-        with open(caminho, 'rb') as f:
-            result = chardet.detect(f.read(10000))
-
-        data = pd.read_csv(caminho, encoding=result['encoding'], delimiter=";")
+    def abrir_remover_reconstrucao(data, arq_output):
         colunas = ['AGREGACAO','MUNICIPIO','RECONHECIMENTO','GESTOR','TIPO','FONTE','EIXO','SUBEIXO','FINALIDADE','PAGO']
         data.columns = colunas
         data = Arquivos.remover_acentos(data)
@@ -59,7 +60,25 @@ class Arquivos:
 
     @staticmethod
     def abrir_arquivos(opc,input,output):
+        colunas_valores = [
+                    'PEPL_Assistencia_medica_saude_publica_e_atendimento_de_emergencias_medicas',
+                    'PEPL_Abastecimento_de_agua_potavel',
+                    'PEPL_Esgoto_de_aguas_pluviais_e_sistema_de_esgotos_sanitarios',
+                    'PEPL_Sistema_de_limpeza_urbana_e_de_recolhimento_e_destinacao_do_lixo',
+                    'PEPL_Sistema_de_desinfestacao_desinfeccao_do_habitat_controle_de_pragas_e_vetores',
+                    'PEPL_Geracao_e_distribuicao_de_energia_eletrica',
+                    'PEPL_Telecomunicacoes',
+                    'PEPL_Transportes_locais_regionais_e_de_longo_curso',
+                    'PEPL_Distribuicao_de_combustiveis_especialmente_os_de_uso_domestico',
+                    'PEPL_Seguranca_publica',
+                    'PEPL_Ensino'
+                ]
+        with open(input, 'rb') as f:
+            result = chardet.detect(f.read(10000))
+        data = pd.read_csv(input, encoding=result['encoding'], delimiter=";")
+
         if opc == 1:
-            Arquivos.abrir_remover_acentos(input,output)
+            Arquivos.retirar_notacao_cientifica(data,colunas_valores)
+            Arquivos.abrir_remover_acentos(data,output)
         if opc == 2:
-            Arquivos.abrir_remover_reconstrucao(input,output)
+            Arquivos.abrir_remover_reconstrucao(data,output)
