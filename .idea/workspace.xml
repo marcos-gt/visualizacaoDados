@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a2a8991e-ae31-4942-beff-f16ffabe4f9e" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.local.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.local.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dataSources.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dataSources.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PreparoDados.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Arquivos.py" beforeDir="false" afterPath="$PROJECT_DIR$/Arquivos.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DadosRS_2020.csv" beforeDir="false" afterPath="$PROJECT_DIR$/DadosRS_2020.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DadosRS_2021.csv" beforeDir="false" afterPath="$PROJECT_DIR$/DadosRS_2021.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/DadosRS_2022.csv" beforeDir="false" afterPath="$PROJECT_DIR$/DadosRS_2022.csv" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Graficos.py" beforeDir="false" afterPath="$PROJECT_DIR$/Graficos.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Popula.py" beforeDir="false" afterPath="$PROJECT_DIR$/Popula.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
@@ -123,6 +119,8 @@
       <workItem from="1731516457441" duration="1297000" />
       <workItem from="1731517781121" duration="8409000" />
       <workItem from="1731538731669" duration="21655000" />
+      <workItem from="1731640951744" duration="46000" />
+      <workItem from="1731683014565" duration="10482000" />
     </task>
     <servers />
   </component>
@@ -165,6 +163,11 @@
           <line>4</line>
           <option name="timeStamp" value="6" />
         </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/Graficos.py</url>
+          <line>84</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
     <watches-manager>
@@ -175,6 +178,6 @@
     </watches-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-    <SUITE FILE_PATH="coverage/Python$main.coverage" NAME="main Coverage Results" MODIFIED="1731631913221" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Python$main.coverage" NAME="main Coverage Results" MODIFIED="1731692241892" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

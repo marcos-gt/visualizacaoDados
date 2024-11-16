@@ -12,13 +12,13 @@ def obterproximoid(cursor, tabela, coluna_id):
 def encontrarOuInserirRegistro(cursor, tabela, coluna_id, coluna_descricao, valor_descricao):
     try:
         qry = f"SELECT {coluna_id} FROM {tabela} WHERE {coluna_descricao} = %s"
-        cursor.execute(qry, (valor_descricao,))
+        cursor.execute(qry, (valor_descricao.upper(),))
         registro = cursor.fetchone()
 
         if registro is None:
             proximo_id = obterproximoid(cursor, tabela, coluna_id)
             qry = f"INSERT INTO {tabela} ({coluna_id}, {coluna_descricao}) VALUES (%s, %s)"
-            cursor.execute(qry, (proximo_id, valor_descricao))
+            cursor.execute(qry, (proximo_id, valor_descricao.upper()))
             cursor.connection.commit()  # Confirma a transação após a inserção
             return proximo_id
         else:
@@ -108,7 +108,7 @@ class Popula:
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s)
                 """
                 data = (
-                    id, row['RECONHECIMENTO'], row['GESTOR'],row['TIPO'],row['FONTE'],row['FINALIDADE'],pago,municipio,eixo,subeixo,'05/01/2024'
+                    id, row['RECONHECIMENTO'], row['GESTOR'],row['TIPO'],row['FONTE'],row['FINALIDADE'],pago,municipio,eixo,subeixo,'05/05/2024'
                 )
                 cursor.execute(query, data)
 

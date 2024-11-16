@@ -66,8 +66,6 @@ class Graficos:
         plt.ylabel(f'Valor Normalizado {valorMax}')
         plt.title('Desastres, Mortos e Prejuízos Normalizados por Município (Top 3)')
         plt.xticks(rotation=45, ha='right')
-
-        # Adicionar legenda e layout
         plt.legend()
         plt.tight_layout()
         plt.show()
@@ -75,9 +73,17 @@ class Graficos:
         # FALTA ARRUMAR OUTROS GRAFICOS A PARTIR DAQUI ###
 
         # Filtra por ano para separar 2024
-        # dados_secretaria['data'] = pd.to_datetime(dados_secretaria['data']).dt.year
-        # dados_2024 = dados_secretaria[dados_secretaria['Ano'] == 2024]
-        # dados_anteriores = dados_secretaria[dados_secretaria['Ano'] < 2024]
+
+        df_misturado = cursor.execute("""select * from municipio m 
+        left join secretaria s on m.mun_id = s.municipio
+        where (cobrade like '132%' or cobrade like '12200')
+        and extract(month s.data) = 5
+        
+        """,conn).fetchall()
+
+        dados_2024 = df_misturado['data']=2024
+        dados_2023 = df_misturado['data']=2023
+
         #
         # # Contagem de desastres por município para 2024 e anos anteriores
         # desastres_por_cidade_2024 = dados_2024['municipio'].value_counts()

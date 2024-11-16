@@ -7,9 +7,13 @@ from unidecode import unidecode
 class Arquivos:
     @staticmethod
     def retirar_notacao_cientifica(dataframe, colunas):
-        for _, row in dataframe.iterrows():
-            for coluna in colunas:
-                dataframe[coluna] = str(Decimal(row[coluna]))
+        for coluna in colunas:
+            if coluna in dataframe.columns:  # Verifica se a coluna existe no DataFrame
+                dataframe[coluna] = dataframe[coluna].apply(
+                    lambda x: str(Decimal(x)) if pd.notna(x) else x
+                )
+            else:
+                print(f"Coluna '{coluna}' não encontrada no DataFrame.")
 
     @staticmethod
     def remover_acentos(dataframe):
