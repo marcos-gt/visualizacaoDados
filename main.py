@@ -26,10 +26,10 @@ if __name__ == "__main__":
     #banco = Banco(conexao, "Secretaria")
 
     #Função para Popular Banco
-    Popula(conexao,1,'DadosRS_2020.csv')
-    Popula(conexao,1,'DadosRS_2021.csv')
-    Popula(conexao,1,'DadosRS_2022.csv')
-    Popula(conexao,2,'Reconstrucao.csv')
-    # Graficos = Graficos(conexao)
-    PreparoDados = PreparoDados(conexao)
+    # Popula(conexao,1,'DadosRS_2020.csv')
+    # Popula(conexao,1,'DadosRS_2021.csv')
+    # Popula(conexao,1,'DadosRS_2022.csv')
+    # Popula(conexao,2,'Reconstrucao.csv')
+    Graficos = Graficos(conexao)
+    # PreparoDados = PreparoDados(conexao)
     conexao.close()

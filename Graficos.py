@@ -1,11 +1,11 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import plotly.express as px
 
 class Graficos:
     def __init__(self,conn):
         cursor = conn.cursor()
-
         df_destinado = pd.read_sql("""
             select m.descricao municipio,sum(pepl) total_destinado from public.secretaria s
             left join public.municipio m on m.mun_id = s.municipio
@@ -71,35 +71,101 @@ class Graficos:
         plt.show()
 
         # FALTA ARRUMAR OUTROS GRAFICOS A PARTIR DAQUI ###
+        ## para mapear evento de maio 2024
+        df_sec_filtrado_por_cobrade = pd.read_sql("""
+                        select m.descricao municipio,s.dm_valor_casas As "Dano nas casas",s.dm_obra_infra_valor as "Dano em Infra-publica",s.pepl as "Prejuizo público",s.pepr "Prejuizo privado",sum(s.dm_valor_casas+s.dm_obra_infra_valor+s.pepl+s.pepr) total from secretaria s
+                         left join municipio m on s.municipio =m.mun_id
+                    WHERE
+                    ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
+                     OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
+                     OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
+                     OR cobrade LIKE '13215%') and (pepl > 0 or pepr > 0))
+                     group by  m.descricao,s.dm_valor_casas,s.dm_obra_infra_valor,s.pepl,s.pepr
+                     order by total desc                     
+                """, conn)
+        df_sec_filtrado_por_cobrade = df_sec_filtrado_por_cobrade.head(10)
+        df_sec_filtrado_por_cobrade = df_sec_filtrado_por_cobrade.drop('total', axis=1)
+        # Criar gráfico de barras interativo
+        fig = px.bar(
+            df_sec_filtrado_por_cobrade.melt(id_vars='municipio', var_name='Categoria', value_name='Valor'),
+            x='municipio',
+            y='Valor',
+            color='Categoria',
+            title='Valores de Danos e Prejuízos por Município',
+            labels={'municipio': 'Município', 'Valor': 'Valor (R$)', 'Categoria': 'Categoria'},
+            height=600
+        )
+        # Ajustar layout
+        fig.update_layout(
+            xaxis_tickangle=-45,
+            xaxis_title="Município",
+            yaxis_title="Valor (R$)",
+            legend_title="Categoria",
+            margin=dict(l=40, r=40, t=40, b=120),
+            showlegend=True
+        )
+        fig.show()
 
-        # Filtra por ano para separar 2024
+        ###############  PARA SECRETARIA:
+        df_sec_filtrado_por_cobrade_e_valor_total = pd.read_sql("""
+            SELECT m.descricao AS municipio, 
+                   SUM(s.dm_valor_casas + s.dm_obra_infra_valor + s.pepl + s.pepr) AS pago 
+            FROM secretaria s
+            LEFT JOIN municipio m ON s.municipio = m.mun_id
+            WHERE ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
+                   OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
+                   OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
+                   OR cobrade LIKE '13215%') AND (pepl > 0 OR pepr > 0)) 
+            GROUP BY m.descricao
+            ORDER BY pago DESC
+        """, conn)
+        df_sec_filtrado_por_cobrade_e_valor_total = df_sec_filtrado_por_cobrade_e_valor_total.head(10)
+        print(df_sec_filtrado_por_cobrade_e_valor_total)
 
-        df_misturado = cursor.execute("""select * from municipio m 
-        left join secretaria s on m.mun_id = s.municipio
-        where (cobrade like '132%' or cobrade like '12200')
-        and extract(month s.data) = 5
-        
-        """,conn).fetchall()
+        #######PARA MUNICIPIOS:
+        df_municipios_afetados = pd.read_sql("""
+            SELECT m.descricao AS municipio, 
+                   r.pago AS pago_afetados 
+            FROM reconstrucao r
+            LEFT JOIN municipio m ON m.mun_id = r.municipio
+            order by pago_afetados desc
+        """, conn)
+        df_municipios_afetados = df_municipios_afetados.head(10)
+        print(df_municipios_afetados)
 
-        dados_2024 = df_misturado['data']=2024
-        dados_2023 = df_misturado['data']=2023
+        # Fazer o merge
+        df_misto = df_municipios_afetados.merge(
+            df_sec_filtrado_por_cobrade_e_valor_total,
+            on='municipio',
+            how='inner'
+        )
 
-        #
-        # # Contagem de desastres por município para 2024 e anos anteriores
-        # desastres_por_cidade_2024 = dados_2024['municipio'].value_counts()
-        # desastres_por_cidade_anteriores = dados_anteriores['municipio'].value_counts()
-        #
-        # # Combina os dois em um DataFrame
-        # comparacao_desastres = pd.DataFrame({
-        #     '2024': desastres_por_cidade_2024,
-        #     'Anteriores': desastres_por_cidade_anteriores
-        # }).fillna(0)
-        #
-        # # Gráfico de barras para comparação
-        # comparacao_desastres.plot(kind='bar', figsize=(12, 6))
-        # plt.title('Quantidade de Desastres por Cidade: Comparação 2024 vs Anos Anteriores')
-        # plt.xlabel('Cidade')
-        # plt.ylabel('Quantidade de Desastres')
-        # plt.legend(['2024', 'Anos Anteriores'])
-        # plt.xticks(rotation=90)
-        # plt.show()
+        # Criar uma nova coluna com a soma dos valores pagos
+        if 'pago' in df_misto.columns and 'pago_afetados' in df_misto.columns:
+            df_misto['pago_total'] = df_misto['pago'] + df_misto['pago_afetados']
+        else:
+            print("As colunas 'pago' ou 'pago_afetados' estão ausentes no DataFrame resultante.")
+
+        # Gerar gráfico interativo
+        fig = px.bar(
+            df_misto.melt(id_vars='municipio', var_name='Categoria', value_name='Valor'),
+            x='municipio',
+            y='Valor',
+            color='Categoria',
+            title='Valores de Danos e Prejuízos por Município (Soma dos Dados)',
+            labels={'municipio': 'Município', 'Valor': 'Valor (R$)', 'Categoria': 'Categoria'},
+            height=600
+        )
+
+        # Ajustar layout
+        fig.update_layout(
+            xaxis_tickangle=-45,
+            xaxis_title="Município",
+            yaxis_title="Valor (R$)",
+            legend_title="Categoria",
+            margin=dict(l=40, r=40, t=40, b=120),
+            showlegend=True
+        )
+
+        fig.show()
+
