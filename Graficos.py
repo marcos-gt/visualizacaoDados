@@ -3,69 +3,40 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 
 def grafico_um(conn):
-    df_destinado = pd.read_sql("""
-                select m.descricao municipio,sum(pepl) total_destinado from public.secretaria s
-                left join public.municipio m on m.mun_id = s.municipio
-                where cobrade like '132%' or cobrade like '12200'
-                or cobrade like '12300' or cobrade like '12100'
-                group by m.Descricao
-                having sum(pepl)>0
-                order by total_destinado desc
-            """, conn)
+    ## ESTE GRAFICO MOSTRA OS TOP 10 MUNICIPIOS COM MAIS MORTOS, FERIDOS E ENFERMOS - MAPA DE CALOR
+    label_grafico = "Tragedia em numeros, resumo!"
+    sql = """
+           SELECT m.descricao AS municipio,
+              SUM(s.dh_mortos) AS Mortos,
+              SUM(s.dh_feridos) AS Feridos,
+              SUM(s.dh_enfermos) AS Enfermos
+           FROM Secretaria s
+           LEFT JOIN municipio m ON m.mun_id = s.municipio
+          where (cobrade LIKE '13213%' OR cobrade LIKE '12300%'
+                         OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
+                         OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
+                         OR cobrade LIKE '13215%')
+           GROUP BY m.descricao
+           ORDER BY m.descricao
+       """
+    df = pd.read_sql(sql, conn)
 
-    plt.figure(figsize=(10, 6))
-    municipios = df_destinado.head(5)
-    plt.bar(municipios['municipio'], municipios['total_destinado'])
-    plt.xlabel('Municipio')
-    plt.ylabel('Total Destinado (R$)')
-    plt.title('Total Destinado a Cada Município para restaurar as casas (2020-2024)')
-    plt.xticks(rotation=90)
-    plt.show()
+    # Filtrar os top 10 municípios
+    top_municipios = df.nlargest(10, ['mortos', 'feridos', 'enfermos'])
+    df_melted = top_municipios.melt(id_vars=['municipio'], var_name='Categoria', value_name='Quantidade')
+    fig = px.density_heatmap(df_melted, x='municipio', y='Categoria', z='Quantidade',
+                             title='Tragedia em numeros',
+                             labels={'municipio': 'Município', 'Quantidade': 'Quantidade', 'Categoria': 'Categoria'},
+                             color_continuous_scale='Viridis')
 
-    df_desastres_mortos = pd.read_sql("""
-                    SELECT m.descricao,s.municipio, COUNT(*) as quantidade_desastres, SUM(s.dh_mortos) as total_mortos
-                    FROM Secretaria s
-                    left join municipio m on m.mun_id = s.municipio
-                    GROUP BY m.descricao,s.municipio
-                    ORDER BY total_mortos DESC;
-            """, conn)
-
-    df_prejuizos = pd.read_sql("""
-                SELECT municipio, SUM(Pepl)+SUM(PEPR) as total_prejuizos
-                FROM Secretaria
-                GROUP BY municipio
-                ORDER BY total_prejuizos DESC;
-            """, conn)
-
-    df_top_mortos = df_desastres_mortos.nlargest(5, 'total_mortos')
-    df_top_prejuizos = df_prejuizos.nlargest(5, 'total_prejuizos')
-
-    # Normalizar os valores
-    df_top_mortos['total_mortos_normalizado'] = df_top_mortos['total_mortos'] / df_top_mortos['total_mortos'].max()
-    df_top_prejuizos['total_prejuizos_normalizado'] = df_top_prejuizos['total_prejuizos'] / df_top_prejuizos[
-        'total_prejuizos'].max()
-
-    # Configurar o gráfico
-    plt.figure(figsize=(12, 6))
-    largura_barra = 0.35
-    municipios = df_top_mortos['descricao']  # Usando os municípios dos dados de mortos
-    plt.bar(municipios, df_top_mortos['total_mortos_normalizado'], width=largura_barra,
-            label='Mortos (Normalizado)',
-            color='skyblue', alpha=0.9, align='center')
-    valorMax = str(df_top_prejuizos[
-                       'total_prejuizos'].max())
-    # Gráfico de prejuízos normalizados (à direita, ajustando a posição com deslocamento)
-    plt.bar(municipios, df_top_prejuizos['total_prejuizos_normalizado'], width=largura_barra,
-            label='Prejuízos (Normalizado)',
-            color='orange', alpha=0.7, align='edge')
-
-    plt.xlabel('Município')
-    plt.ylabel(f'Valor Normalizado {valorMax}')
-    plt.title('Desastres, Mortos e Prejuízos Normalizados por Município (Top 3)')
-    plt.xticks(rotation=45, ha='right')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # Ajustar layout
+    fig.update_layout(
+        xaxis_title='Municipio',
+        yaxis_title='Categoria',
+        coloraxis_colorbar=dict(title='Quantidade'),
+        showlegend=False
+    )
+    fig.show()
 
 def grafico_dois(conn):
     df_sec_filtrado_por_cobrade = pd.read_sql("""
@@ -219,11 +190,58 @@ def grafico_quatro(conn):
     # Exibir o gráfico
     fig.show()
 
+def grafico_cinco(conn):
+    ## GRAFICO PREJUIZO EM RELAÇÃO AO NUMERO DE MORTES NORMALIZADO POR MUNICIPIO
+    df_desastres_mortos = pd.read_sql("""
+                        SELECT m.descricao,s.municipio, COUNT(*) as quantidade_desastres, SUM(s.dh_mortos) as total_mortos
+                        FROM Secretaria s
+                        left join municipio m on m.mun_id = s.municipio
+                        GROUP BY m.descricao,s.municipio
+                        ORDER BY total_mortos DESC;
+                """, conn)
+
+    df_prejuizos = pd.read_sql("""
+                    SELECT municipio, SUM(Pepl)+SUM(PEPR) as total_prejuizos
+                    FROM Secretaria
+                    GROUP BY municipio
+                    ORDER BY total_prejuizos DESC;
+                """, conn)
+
+    df_top_mortos = df_desastres_mortos.nlargest(5, 'total_mortos')
+    df_top_prejuizos = df_prejuizos.nlargest(5, 'total_prejuizos')
+
+    # Normalizar os valores
+    df_top_mortos['total_mortos_normalizado'] = df_top_mortos['total_mortos'] / df_top_mortos['total_mortos'].max()
+    df_top_prejuizos['total_prejuizos_normalizado'] = df_top_prejuizos['total_prejuizos'] / df_top_prejuizos[
+        'total_prejuizos'].max()
+
+    # Configurar o gráfico
+    plt.figure(figsize=(12, 6))
+    largura_barra = 0.35
+    municipios = df_top_mortos['descricao']  # Usando os municípios dos dados de mortos
+    plt.bar(municipios, df_top_mortos['total_mortos_normalizado'], width=largura_barra,
+            label='Mortos (Normalizado)',
+            color='red', alpha=0.9, align='center')
+    valorMax = str(df_top_prejuizos[
+                       'total_prejuizos'].max())
+    # Gráfico de prejuízos normalizados (à direita, ajustando a posição com deslocamento)
+    plt.bar(municipios, df_top_prejuizos['total_prejuizos_normalizado'], width=largura_barra,
+            label='Prejuízos (Normalizado)',
+            color='brown', alpha=0.7, align='edge')
+
+    plt.xlabel('Município')
+    plt.ylabel(f'Valor Normalizado {valorMax}')
+    plt.title('Desastres, Mortos e Prejuízos Normalizados por Município (Top 3)')
+    plt.xticks(rotation=45, ha='right')
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 class Graficos:
     def __init__(self,conn):
-        grafico_um(conn)
-        grafico_dois(conn)
-        grafico_tres(conn)
-        grafico_quatro(conn)
+        # grafico_um(conn)
+        # grafico_dois(conn)
+        # grafico_tres(conn)
+        # grafico_quatro(conn)
+        grafico_cinco(conn)
 
