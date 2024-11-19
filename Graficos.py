@@ -2,6 +2,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
 
+def obter_valor_original(row, col_normalized, col_original, df):
+    """Busca o valor original correspondente ou retorna NaN."""
+    filtro = df['municipio_id'] == row['municipio_id']
+    if filtro.sum() > 0:
+        return df.loc[filtro, col_original].values[0]
+    return float('nan')
+
 def grafico_um(conn):
     ## ESTE GRAFICO MOSTRA OS TOP 10 MUNICIPIOS COM MAIS MORTOS, FERIDOS E ENFERMOS - MAPA DE CALOR
     label_grafico = "Tragedia em numeros, resumo!"
@@ -9,7 +16,8 @@ def grafico_um(conn):
            SELECT m.descricao AS municipio,
               SUM(s.dh_mortos) AS Mortos,
               SUM(s.dh_feridos) AS Feridos,
-              SUM(s.dh_enfermos) AS Enfermos
+              SUM(s.dh_enfermos) AS Enfermos,
+              sum(s.dh_desabrigados) as Desabrigados
            FROM Secretaria s
            LEFT JOIN municipio m ON m.mun_id = s.municipio
           where (cobrade LIKE '13213%' OR cobrade LIKE '12300%'
@@ -76,7 +84,7 @@ def grafico_dois(conn):
 def grafico_tres(conn):
     df_sec_filtrado_por_cobrade_e_valor_total = pd.read_sql("""
                 SELECT m.descricao AS municipio, 
-                       SUM(s.dm_valor_casas + s.dm_obra_infra_valor + s.pepl + s.pepr) AS pago 
+                       SUM(s.dm_valor_casas + s.dm_obra_infra_valor + s.pepl + s.pepr) AS gasto_anterior 
                 FROM secretaria s
                 LEFT JOIN municipio m ON s.municipio = m.mun_id
                 WHERE ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
@@ -84,18 +92,17 @@ def grafico_tres(conn):
                        OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
                        OR cobrade LIKE '13215%') AND (pepl > 0 OR pepr > 0)) 
                 GROUP BY m.descricao
-                ORDER BY pago DESC
+                ORDER BY gasto_anterior DESC
             """, conn)
     print(f'secretarias: \n {df_sec_filtrado_por_cobrade_e_valor_total.head(20)}')
     #######PARA MUNICIPIOS:
     df_municipios_afetados = pd.read_sql("""
                 SELECT m.descricao AS municipio, 
-                       r.pago AS pago_afetados 
+                       r.pago AS gasto_atual 
                 FROM reconstrucao r
                 LEFT JOIN municipio m ON m.mun_id = r.municipio
-                order by pago_afetados desc
+                order by gasto_atual desc
             """, conn)
-    print(f'municipios: \n {df_municipios_afetados.head(20)}')
     # Realizar merge entre os DataFrames, unindo pela coluna "municipio"
     # Mesclar os dois DataFrames baseando-se no nome do município
     df_misto = pd.merge(
@@ -105,13 +112,13 @@ def grafico_tres(conn):
         how="outer"
     )
     # Agrupar por município e somar os valores
-    df_misto_agrupado = df_misto.groupby("municipio", as_index=False)[["pago", "pago_afetados"]].sum()
+    df_misto_agrupado = df_misto.groupby("municipio", as_index=False)[["gasto_anterior", "gasto_atual"]].sum()
 
     # Recalcular a coluna "pago_total" após o agrupamento
-    df_misto_agrupado["pago_total"] = df_misto_agrupado["pago"] + df_misto_agrupado["pago_afetados"]
+    df_misto_agrupado["pago_total"] = df_misto_agrupado["gasto_anterior"] + df_misto_agrupado["gasto_atual"]
 
     # Ordenar pelo maior valor total e pegar os 10 primeiros
-    df_top_10 = df_misto_agrupado.sort_values(by="pago_total", ascending=False).head(10)
+    df_top_10 = df_misto_agrupado.sort_values(by="gasto_atual", ascending=False).head(10)
 
     # Exibir o resultado consolidado
     print(df_top_10)
@@ -191,7 +198,6 @@ def grafico_quatro(conn):
     fig.show()
 
 def grafico_cinco(conn):
-    ## GRAFICO PREJUIZO EM RELAÇÃO AO NUMERO DE MORTES NORMALIZADO POR MUNICIPIO
     df_desastres_mortos = pd.read_sql("""
                         SELECT m.descricao,s.municipio, COUNT(*) as quantidade_desastres, SUM(s.dh_mortos) as total_mortos
                         FROM Secretaria s
@@ -221,13 +227,13 @@ def grafico_cinco(conn):
     municipios = df_top_mortos['descricao']  # Usando os municípios dos dados de mortos
     plt.bar(municipios, df_top_mortos['total_mortos_normalizado'], width=largura_barra,
             label='Mortos (Normalizado)',
-            color='red', alpha=0.9, align='center')
+            color='skyblue', alpha=0.9, align='center')
     valorMax = str(df_top_prejuizos[
                        'total_prejuizos'].max())
     # Gráfico de prejuízos normalizados (à direita, ajustando a posição com deslocamento)
     plt.bar(municipios, df_top_prejuizos['total_prejuizos_normalizado'], width=largura_barra,
             label='Prejuízos (Normalizado)',
-            color='brown', alpha=0.7, align='edge')
+            color='orange', alpha=0.7, align='edge')
 
     plt.xlabel('Município')
     plt.ylabel(f'Valor Normalizado {valorMax}')
@@ -241,7 +247,6 @@ class Graficos:
     def __init__(self,conn):
         # grafico_um(conn)
         # grafico_dois(conn)
-        # grafico_tres(conn)
+        grafico_tres(conn)
         # grafico_quatro(conn)
-        grafico_cinco(conn)
-
+        # grafico_cinco(conn)
