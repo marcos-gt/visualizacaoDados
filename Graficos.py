@@ -48,28 +48,39 @@ def grafico_um(conn):
 
 def grafico_dois(conn):
     df_sec_filtrado_por_cobrade = pd.read_sql("""
-                            select m.descricao municipio,s.dm_valor_casas As "Dano nas casas",s.dm_obra_infra_valor as "Dano em Infra-publica",s.pepl as "Prejuizo público",s.pepr "Prejuizo privado",sum(s.dm_valor_casas+s.dm_obra_infra_valor+s.pepl+s.pepr) total from secretaria s
-                             left join municipio m on s.municipio =m.mun_id
-                        WHERE
-                        ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
-                         OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
-                         OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
-                         OR cobrade LIKE '13215%') and (pepl > 0 or pepr > 0))
-                         group by  m.descricao,s.dm_valor_casas,s.dm_obra_infra_valor,s.pepl,s.pepr
-                         order by total desc                     
-                    """, conn)
+                                    select m.descricao municipio,
+           s.dm_valor_casas As "Dano nas casas",
+           s.dm_obra_infra_valor as "Dano em Infra-publica",
+           s.dm_valor_dano_publico As "Dano público",
+           s.pepl as "Prejuizo público",s.pepr "Prejuizo privado",
+           sum(s.dm_valor_casas+s.dm_valor_dano_publico+s.dm_obra_infra_valor+s.pepl+s.pepr) total ,
+           s.data
+        from secretaria s
+        left join municipio m on s.municipio =m.mun_id
+        WHERE
+        	((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
+        	OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
+        	OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
+        	OR cobrade LIKE '13215%') and (pepl > 0 or pepr > 0))
+        	group by  m.descricao,s.dm_valor_casas,s.dm_obra_infra_valor,s.pepl,s.pepr,s.dm_valor_dano_publico,s.data
+        	order by total desc                      
+    """, conn)
+    df_sec_filtrado_por_cobrade['data'] = pd.to_datetime(df_sec_filtrado_por_cobrade['data']).dt.year
+
     df_sec_filtrado_por_cobrade = df_sec_filtrado_por_cobrade.head(10)
     df_sec_filtrado_por_cobrade = df_sec_filtrado_por_cobrade.drop('total', axis=1)
     # Criar gráfico de barras interativo
     fig = px.bar(
-        df_sec_filtrado_por_cobrade.melt(id_vars='municipio', var_name='Categoria', value_name='Valor'),
+        df_sec_filtrado_por_cobrade.melt(id_vars=['municipio', 'data'], var_name='Categoria', value_name='Valor'),
         x='municipio',
         y='Valor',
         color='Categoria',
         title='Valores de Danos e Prejuízos por Município',
         labels={'municipio': 'Município', 'Valor': 'Valor (R$)', 'Categoria': 'Categoria'},
-        height=600
+        height=600,
+        hover_data={'data': True}  # Adiciona a coluna "data" no tooltip
     )
+
     # Ajustar layout
     fig.update_layout(
         xaxis_tickangle=-45,
@@ -103,13 +114,14 @@ def grafico_tres(conn):
                 LEFT JOIN municipio m ON m.mun_id = r.municipio
                 order by gasto_atual desc
             """, conn)
+    print(df_municipios_afetados.head(20))
     # Realizar merge entre os DataFrames, unindo pela coluna "municipio"
     # Mesclar os dois DataFrames baseando-se no nome do município
     df_misto = pd.merge(
         df_sec_filtrado_por_cobrade_e_valor_total,
         df_municipios_afetados,
         on="municipio",
-        how="outer"
+        how="inner"
     )
     # Agrupar por município e somar os valores
     df_misto_agrupado = df_misto.groupby("municipio", as_index=False)[["gasto_anterior", "gasto_atual"]].sum()
@@ -250,3 +262,4 @@ class Graficos:
         grafico_tres(conn)
         # grafico_quatro(conn)
         # grafico_cinco(conn)
+
