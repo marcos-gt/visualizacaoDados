@@ -95,7 +95,7 @@ def grafico_dois(conn):
 def grafico_tres(conn):
     df_sec_filtrado_por_cobrade_e_valor_total = pd.read_sql("""
                 SELECT m.descricao AS municipio, 
-                       SUM(s.dm_valor_casas + s.dm_obra_infra_valor + s.pepl + s.pepr) AS gasto_anterior 
+                       SUM(s.dm_valor_casas + s.dm_obra_infra_valor+s.dm_valor_dano_publico + s.pepl + s.pepr) AS gasto_anterior 
                 FROM secretaria s
                 LEFT JOIN municipio m ON s.municipio = m.mun_id
                 WHERE ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
@@ -105,16 +105,15 @@ def grafico_tres(conn):
                 GROUP BY m.descricao
                 ORDER BY gasto_anterior DESC
             """, conn)
-    print(f'secretarias: \n {df_sec_filtrado_por_cobrade_e_valor_total.head(20)}')
     #######PARA MUNICIPIOS:
     df_municipios_afetados = pd.read_sql("""
-                SELECT m.descricao AS municipio, 
-                       r.pago AS gasto_atual 
+               SELECT m.descricao AS municipio, 
+                       sum(r.pago) AS gasto_atual 
                 FROM reconstrucao r
                 LEFT JOIN municipio m ON m.mun_id = r.municipio
+				group by m.descricao
                 order by gasto_atual desc
             """, conn)
-    print(df_municipios_afetados.head(20))
     # Realizar merge entre os DataFrames, unindo pela coluna "municipio"
     # Mesclar os dois DataFrames baseando-se no nome do município
     df_misto = pd.merge(
@@ -132,8 +131,6 @@ def grafico_tres(conn):
     # Ordenar pelo maior valor total e pegar os 10 primeiros
     df_top_10 = df_misto_agrupado.sort_values(by="gasto_atual", ascending=False).head(10)
 
-    # Exibir o resultado consolidado
-    print(df_top_10)
     df_top_10 = df_top_10.drop("pago_total", axis=1)
     # Criar gráfico interativo com os valores consolidados
     fig = px.bar(
@@ -257,9 +254,9 @@ def grafico_cinco(conn):
 
 class Graficos:
     def __init__(self,conn):
-        # grafico_um(conn)
-        # grafico_dois(conn)
+        grafico_um(conn)
+        grafico_dois(conn)
         grafico_tres(conn)
-        # grafico_quatro(conn)
-        # grafico_cinco(conn)
+        grafico_quatro(conn)
+        grafico_cinco(conn)
 
