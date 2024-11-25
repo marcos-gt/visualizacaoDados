@@ -1,6 +1,62 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+
+def gerar_subgrafico(conn):
+    df_sec_filtrado_por_cobrade = pd.read_sql("""
+        select m.descricao municipio,
+               s.dm_valor_casas As "Dano nas casas",
+               s.dm_obra_infra_valor as "Dano em Infra-publica",
+               s.dm_valor_dano_publico As "Dano público",
+               s.pepl as "Prejuizo público", s.pepr "Prejuizo privado",
+               sum(s.dm_valor_casas + s.dm_valor_dano_publico + s.dm_obra_infra_valor + s.pepl + s.pepr) total,
+               s.data
+        from secretaria s
+        left join municipio m on s.municipio = m.mun_id
+        WHERE
+            ((cobrade LIKE '13213%' OR cobrade LIKE '12300%'
+            OR cobrade LIKE '13214%' OR cobrade LIKE '13211%'
+            OR cobrade LIKE '12100%' OR cobrade LIKE '13212%'
+            OR cobrade LIKE '13215%') and (pepl > 0 or pepr > 0))
+        group by m.descricao, s.dm_valor_casas, s.dm_obra_infra_valor, s.pepl, s.pepr, s.dm_valor_dano_publico, s.data
+        order by total desc
+    """, conn)
+
+    # Converter a coluna 'data' para o ano
+    df_sec_filtrado_por_cobrade['data'] = pd.to_datetime(df_sec_filtrado_por_cobrade['data']).dt.year
+
+    # Criar subgráficos
+    fig = make_subplots(rows=3, cols=1,
+                        subplot_titles=("Top 10 Eventos de 2020", "Top 10 Eventos de 2021", "Top 10 Eventos de 2022"))
+
+    # Filtrar e adicionar os dados de cada ano aos subgráficos
+    for i, year in enumerate([2020, 2021, 2022], start=1):
+        df_year = df_sec_filtrado_por_cobrade[df_sec_filtrado_por_cobrade['data'] == year].head(10)
+        df_year = df_year.drop('total', axis=1)
+        df_melted = df_year.melt(id_vars=['municipio', 'data'], var_name='Categoria', value_name='Valor')
+
+        for categoria in df_melted['Categoria'].unique():
+            df_categoria = df_melted[df_melted['Categoria'] == categoria]
+            fig.add_trace(
+                go.Bar(x=df_categoria['municipio'], y=df_categoria['Valor'], name=categoria, showlegend=(i == 1)),
+                row=i, col=1
+            )
+
+    # Ajustar layout
+    fig.update_layout(
+        height=1800,
+        title_text="Top 10 Valores de Danos e Prejuízos por Município (2020, 2021, 2022)",
+        xaxis_title="Município",
+        yaxis_title="Valor (R$)",
+        legend_title="Categoria",
+        margin=dict(l=40, r=40, t=40, b=120),
+        showlegend=True
+    )
+
+    # Mostrar o gráfico
+    fig.show()
 
 def obter_valor_original(row, col_normalized, col_original, df):
     """Busca o valor original correspondente ou retorna NaN."""
@@ -28,14 +84,18 @@ def grafico_um(conn):
            ORDER BY m.descricao
        """
     df = pd.read_sql(sql, conn)
-
+    color_continuous_scale = [
+        (0.0, 'beige'),
+        (0.5, 'blue'),
+        (1.0, 'purple')
+    ]
     # Filtrar os top 10 municípios
     top_municipios = df.nlargest(10, ['mortos', 'feridos', 'enfermos'])
     df_melted = top_municipios.melt(id_vars=['municipio'], var_name='Categoria', value_name='Quantidade')
     fig = px.density_heatmap(df_melted, x='municipio', y='Categoria', z='Quantidade',
-                             title='Tragedia em numeros',
+                             title='Resumo dano humano em numeros',
                              labels={'municipio': 'Município', 'Quantidade': 'Quantidade', 'Categoria': 'Categoria'},
-                             color_continuous_scale='Viridis')
+                             color_continuous_scale=color_continuous_scale)
 
     # Ajustar layout
     fig.update_layout(
@@ -47,8 +107,9 @@ def grafico_um(conn):
     fig.show()
 
 def grafico_dois(conn):
+    gerar_subgrafico(conn)
     df_sec_filtrado_por_cobrade = pd.read_sql("""
-                                    select m.descricao municipio,
+           select m.descricao municipio,
            s.dm_valor_casas As "Dano nas casas",
            s.dm_obra_infra_valor as "Dano em Infra-publica",
            s.dm_valor_dano_publico As "Dano público",
@@ -114,8 +175,6 @@ def grafico_tres(conn):
 				group by m.descricao
                 order by gasto_atual desc
             """, conn)
-    # Realizar merge entre os DataFrames, unindo pela coluna "municipio"
-    # Mesclar os dois DataFrames baseando-se no nome do município
     df_misto = pd.merge(
         df_sec_filtrado_por_cobrade_e_valor_total,
         df_municipios_afetados,
@@ -152,7 +211,6 @@ def grafico_tres(conn):
         margin=dict(l=40, r=40, t=40, b=120),
         showlegend=True
     )
-
     # Mostrar o gráfico
     fig.show()
 
@@ -207,50 +265,32 @@ def grafico_quatro(conn):
     fig.show()
 
 def grafico_cinco(conn):
-    df_desastres_mortos = pd.read_sql("""
-                        SELECT m.descricao,s.municipio, COUNT(*) as quantidade_desastres, SUM(s.dh_mortos) as total_mortos
-                        FROM Secretaria s
-                        left join municipio m on m.mun_id = s.municipio
-                        GROUP BY m.descricao,s.municipio
-                        ORDER BY total_mortos DESC;
-                """, conn)
+    sql = """
+        SELECT m.descricao AS municipio,sum(r.pago) as total
+        FROM reconstrucao r
+        left join municipio m on r.municipio = m.mun_id
+        group by m.descricao
+        order by total desc
+        limit 10;               
+    """
+    df = pd.read_sql(sql, conn)
 
-    df_prejuizos = pd.read_sql("""
-                    SELECT municipio, SUM(Pepl)+SUM(PEPR) as total_prejuizos
-                    FROM Secretaria
-                    GROUP BY municipio
-                    ORDER BY total_prejuizos DESC;
-                """, conn)
+    # Verificar valores ausentes ou inconsistências
+    print(df.isnull().sum())
+    print(df[df['total'] == 0])  # Filtrar valores totais iguais a zero
+    df.fillna(0, inplace=True)
 
-    df_top_mortos = df_desastres_mortos.nlargest(5, 'total_mortos')
-    df_top_prejuizos = df_prejuizos.nlargest(5, 'total_prejuizos')
-
-    # Normalizar os valores
-    df_top_mortos['total_mortos_normalizado'] = df_top_mortos['total_mortos'] / df_top_mortos['total_mortos'].max()
-    df_top_prejuizos['total_prejuizos_normalizado'] = df_top_prejuizos['total_prejuizos'] / df_top_prejuizos[
-        'total_prejuizos'].max()
-
-    # Configurar o gráfico
-    plt.figure(figsize=(12, 6))
-    largura_barra = 0.35
-    municipios = df_top_mortos['descricao']  # Usando os municípios dos dados de mortos
-    plt.bar(municipios, df_top_mortos['total_mortos_normalizado'], width=largura_barra,
-            label='Mortos (Normalizado)',
-            color='skyblue', alpha=0.9, align='center')
-    valorMax = str(df_top_prejuizos[
-                       'total_prejuizos'].max())
-    # Gráfico de prejuízos normalizados (à direita, ajustando a posição com deslocamento)
-    plt.bar(municipios, df_top_prejuizos['total_prejuizos_normalizado'], width=largura_barra,
-            label='Prejuízos (Normalizado)',
-            color='orange', alpha=0.7, align='edge')
-
-    plt.xlabel('Município')
-    plt.ylabel(f'Valor Normalizado {valorMax}')
-    plt.title('Desastres, Mortos e Prejuízos Normalizados por Município (Top 3)')
+    # Criar gráfico de barras
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar(df['municipio'], df['total'], color='skyblue')
+    ax.set_title('Top 10 Municípios com Maior Valor Pago')
+    ax.set_xlabel('Município')
+    ax.set_ylabel('Valor Pago (R$)')
     plt.xticks(rotation=45, ha='right')
-    plt.legend()
     plt.tight_layout()
     plt.show()
+
+
 
 class Graficos:
     def __init__(self,conn):
