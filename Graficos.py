@@ -67,7 +67,7 @@ def obter_valor_original(row, col_normalized, col_original, df):
 
 def grafico_um(conn):
     ## ESTE GRAFICO MOSTRA OS TOP 10 MUNICIPIOS COM MAIS MORTOS, FERIDOS E ENFERMOS - MAPA DE CALOR
-    label_grafico = "Tragedia em numeros, resumo!"
+
     sql = """
            SELECT m.descricao AS municipio,
               SUM(s.dh_mortos) AS Mortos,
@@ -243,7 +243,6 @@ def grafico_quatro(conn):
         .reset_index(drop=True)
     )
 
-    # Criar o gráfico interativo
     fig = px.line(
         df_top5,
         x="municipio",
@@ -253,7 +252,6 @@ def grafico_quatro(conn):
         labels={"pago": "Valor Pago (R$)", "municipio": "Município", "finalidade": "Finalidade"},
     )
 
-    # Ajustar layout para melhorar visualização
     fig.update_layout(
         hovermode="x unified",
         xaxis=dict(title="Município", tickangle=-45),
@@ -261,7 +259,6 @@ def grafico_quatro(conn):
         legend_title="Finalidade"
     )
 
-    # Exibir o gráfico
     fig.show()
 
 def grafico_cinco(conn):
