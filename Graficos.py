@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -136,7 +137,7 @@ def grafico_dois(conn):
         x='municipio',
         y='Valor',
         color='Categoria',
-        title='Valores de Danos e Prejuízos por Município',
+        title='Valores de Danos e Prejuízos por Município anos de 2020 a 2022',
         labels={'municipio': 'Município', 'Valor': 'Valor (R$)', 'Categoria': 'Categoria'},
         height=600,
         hover_data={'data': True}  # Adiciona a coluna "data" no tooltip
@@ -221,14 +222,57 @@ def grafico_quatro(conn):
         FROM reconstrucao r
         LEFT JOIN municipio m ON r.municipio = m.mun_id
     """, conn)
-
+    print('Dados completo do SQL: \n\n',dados.head(10))
     # Finalidades que queremos filtrar
     finalidades_desejadas = [
-        "Abono Salarial", "FGTS - Saque Calamidade",
+        "Abono Salarial", "FGTS - Saque Calamidade", "Seguro desemprego",
         "Apoio financeiro a pescadores artesanais e empregadas domesticas",
         "Antecipacao do Auxilio-Gas", "Antecipacao do Bolsa-Familia",
-        "Antecipacao do Piso Nacional da Enfermagem"
+        "Antecipacao do Piso Nacional da Enfermagem", "Auxilio Reconstrucao",
+        "Antecipacao do IRPF", "Bolsa Familia: novas familias incluidas",
+        "Antecipacao de Bolsas de Pos-Graduacao","Antecipacao dos Beneficios Previdenciarios",
+        "Antecipacao do BPC"
     ]
+
+    # Filtrar apenas as finalidades desejadas
+    df_filtrado = dados[dados["finalidade"].isin(finalidades_desejadas)]
+
+    df_pizza = df_filtrado.groupby("finalidade", as_index=False)["pago"].sum()
+    cores = ["#2F4F4F","#708090","#6A5ACD","#48D1CC","#556B2F","#8B4513","#FFD700","#FF6347","#FF4500","#FF69B4","#FF1493","#FF00FF","#8A2BE2"]
+    fig = px.pie(
+        df_pizza,
+        names="finalidade",  # Coluna para os rótulos (nomes das finalidades)
+        values="pago",  # Coluna para os valores (somas dos pagamentos)
+        title="Distribuição dos Valores Totais por Finalidade",
+        color="finalidade",  # Coluna para diferenciar as cores
+        color_discrete_sequence=cores  # Paleta de cores
+    )
+
+    fig.update_traces(
+        textinfo="percent+value",  # Mostrar porcentagem e valor
+        textposition="outside",  # Posicionar os rótulos fora do gráfico
+        textfont_size=12,  # Ajusta o tamanho da fonte
+        textfont_color=cores,  # Cor do texto
+        pull=[0 for _ in range(len(df_pizza))]  # Remover deslocamento dos setores
+    )
+
+    fig.update_layout(
+        showlegend=True,  # Manter a legenda visível
+        title_x=0.5,  # Centralizar o título
+        margin=dict(t=50, b=50, l=50, r=50)
+    )
+    fig.show()
+
+def grafico_cinco(conn):
+    # Consultar os dados do SQL
+    dados = pd.read_sql("""
+            SELECT m.descricao AS municipio, r.finalidade, r.pago
+            FROM reconstrucao r
+            LEFT JOIN municipio m ON r.municipio = m.mun_id
+        """, conn)
+
+    # Finalidades que queremos incluir nos subgráficos
+    finalidades_desejadas = ["FGTS - Saque Calamidade", "Auxilio Reconstrucao"]
 
     # Filtrar apenas as finalidades desejadas
     df_filtrado = dados[dados["finalidade"].isin(finalidades_desejadas)]
@@ -236,64 +280,56 @@ def grafico_quatro(conn):
     # Agrupar por município e finalidade, somando os valores pagos
     df_agrupado = df_filtrado.groupby(["municipio", "finalidade"], as_index=False)["pago"].sum()
 
-    # Selecionar os top 5 municípios com os maiores valores pagos para cada finalidade
-    df_top5 = (
-        df_agrupado.groupby("finalidade", group_keys=False)
-        .apply(lambda x: x.nlargest(5, "pago"))
-        .reset_index(drop=True)
-    )
+    # Obter os top 10 municípios para cada finalidade
+    top_10_por_finalidade = df_agrupado.groupby("finalidade").apply(lambda x: x.nlargest(10, "pago")).reset_index(
+        drop=True)
 
-    fig = px.line(
-        df_top5,
-        x="municipio",
-        y="pago",
-        color="finalidade",
-        title="Evolução dos Valores Pagos (Top 5 Municípios por Finalidade)",
-        labels={"pago": "Valor Pago (R$)", "municipio": "Município", "finalidade": "Finalidade"},
+    # Criar subgráficos
+    fig = make_subplots(
+        rows=2, cols=1,  # Número de subgráficos
+        subplot_titles=finalidades_desejadas,  # Títulos de cada subgráfico
+        vertical_spacing=0.1  # Espaçamento entre os gráficos
     )
+    cores = ["#264653", "#2a9d8f", "#1d3557"]
+    for i, finalidade in enumerate(finalidades_desejadas, start=1):
+        df_finalidade = top_10_por_finalidade[top_10_por_finalidade["finalidade"] == finalidade]
 
+        fig.add_trace(
+            go.Bar(
+                y=df_finalidade["municipio"],  # Municípios no eixo Y
+                x=df_finalidade["pago"],  # Valores pagos no eixo X
+                name=finalidade,  # Nome para legenda
+                marker_color=cores[i % len(cores)],
+                orientation='h',  # Orientação horizontal
+            ),
+            row=i, col=1
+        )
+
+    # Ajustar o layout
     fig.update_layout(
-        hovermode="x unified",
-        xaxis=dict(title="Município", tickangle=-45),
-        yaxis=dict(title="Valor Pago (R$)"),
-        legend_title="Finalidade"
+        height=1200,
+        title_text="Top 10 Municípios por Finalidade (Subgráficos)",  # Título principal
+        yaxis_title="Município",
+        showlegend=True,
+        legend=dict(
+            x=0.5,
+            y=1.0,
+            xanchor='center',
+            yanchor='top'
+        ),
+        xaxis_title="Valor Pago (R$)",
+        margin=dict(l=40, r=40, t=40, b=120)
     )
+
+    fig.update_yaxes(tickangle=0)
 
     fig.show()
 
-def grafico_cinco(conn):
-    sql = """
-        SELECT m.descricao AS municipio,sum(r.pago) as total
-        FROM reconstrucao r
-        left join municipio m on r.municipio = m.mun_id
-        group by m.descricao
-        order by total desc
-        limit 10;               
-    """
-    df = pd.read_sql(sql, conn)
-
-    # Verificar valores ausentes ou inconsistências
-    print(df.isnull().sum())
-    print(df[df['total'] == 0])  # Filtrar valores totais iguais a zero
-    df.fillna(0, inplace=True)
-
-    # Criar gráfico de barras
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(df['municipio'], df['total'], color='skyblue')
-    ax.set_title('Top 10 Municípios com Maior Valor Pago')
-    ax.set_xlabel('Município')
-    ax.set_ylabel('Valor Pago (R$)')
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-    plt.show()
-
-
-
 class Graficos:
     def __init__(self,conn):
-        grafico_um(conn)
-        grafico_dois(conn)
-        grafico_tres(conn)
-        grafico_quatro(conn)
+        # grafico_um(conn)
+        # grafico_dois(conn)
+        # grafico_tres(conn)
+        # grafico_quatro(conn)
         grafico_cinco(conn)
 
